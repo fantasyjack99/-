@@ -452,6 +452,18 @@ function showApprovalPage(weekNumber, level) {
 
 function handleConfirmation(week, level, opinion, decision) {
   try {
+    // 檢查是否已經審核過
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName('審核記錄');
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] == week && data[i][3] == level) {
+          return '⚠️ 此審核已經提交過了，請勿重複提交！';
+        }
+      }
+    }
+    
     const levelInfo = APPROVAL_LEVELS[level];
     const approverName = levelInfo.name;
     const now = new Date();
