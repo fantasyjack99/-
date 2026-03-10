@@ -430,11 +430,11 @@ function showApprovalPage(weekNumber, level) {
       const formData = new FormData(form);
       const data = {};
       formData.forEach((v, k) => data[k] = v);
-      document.body.innerHTML = '<div style="padding:60px;text-align:center;font-family:Noto Sans TC,sans-serif;background:#f0f2f5;min-height:100vh;"><div style="background:white;padding:48px;border-radius:12px;max-width:400px;margin:0 auto;"><div style="font-size:48px;">⏳</div><h2 style="color:#1a73e8;margin-top:16px;">處理中...</h2><p style="color:#5f6368;margin-top:8px;">請稍候</p></div></div>';
-      google.script.run.withSuccessHandler(function(html) {
-        document.body.innerHTML = html;
+      document.body.innerHTML = '<div style="padding:60px;text-align:center;font-family:sans-serif;"><h2>處理中...</h2></div>';
+      google.script.run.withSuccessHandler(function(msg) {
+        document.body.innerHTML = '<div style="padding:60px;text-align:center;font-family:sans-serif;"><h2 style="color:green;">✅ ' + msg + '</h2></div>';
       }).withFailureHandler(function(err) {
-        document.body.innerHTML = '<div style="padding:60px;text-align:center;font-family:Noto Sans TC,sans-serif;background:#f0f2f5;min-height:100vh;"><div style="background:white;padding:48px;border-radius:12px;max-width:400px;margin:0 auto;"><div style="font-size:48px;">❌</div><h2 style="color:#ea4335;margin-top:16px;">發生錯誤</h2><p style="color:#5f6368;margin-top:8px;">' + err.message + '</p></div></div>';
+        document.body.innerHTML = '<div style="padding:60px;text-align:center;font-family:sans-serif;"><h2 style="color:red;">❌ 錯誤: ' + err.message + '</h2></div>';
       }).handleConfirmation(
         parseInt(data.week),
         parseInt(data.level),
@@ -451,121 +451,48 @@ function showApprovalPage(weekNumber, level) {
 }
 
 function handleConfirmation(week, level, opinion, decision) {
-  const levelInfo = APPROVAL_LEVELS[level];
-  const approverName = levelInfo.name;
-  const now = new Date();
-  const approveDate = Utilities.formatDate(now, 'Asia/Taipei', 'yyyy-MM-dd');
-  const approveTime = Utilities.formatDate(now, 'Asia/Taipei', 'HH:mm:ss');
-  
-  const weekData = getWeekInspectionDataForApproval(week);
-  
-  // 儲存審核記錄
-  initApprovalRecordSheet();
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName('審核記錄');
-  sheet.appendRow([week, weekData.startDate, weekData.endDate, level, approverName, opinion || '', approveDate, approveTime, decision === 'approve' ? '已確認' : '退回']);
-  
-  if (decision === 'reject') {
-    sendToSlack({ text: `⚠️ ${approverName} 退回審核，要求補巡\n\n意見：${opinion || '無'}` });
-    return HtmlService.createHtmlOutput(`
-      <html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-        <style>body{font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}.card{background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;}.icon{font-size:64px;margin-bottom:16px;}h1{color:#ea4335;margin:0 0 8px;}p{color:#5f6368;margin:0;}</style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="icon">❌</div>
-          <h1>已退回</h1>
-          <p>${approverName} 已退回審核</p>
-          <p style="margin-top:8px;">意見：${opinion || '無'}</p>
-        </div>
-      </body>
-      </html>
-    `);
-  }
-  
-  const nextLevel = levelInfo.next;
-  
-  if (nextLevel !== null) {
-    const nextApprover = APPROVAL_LEVELS[nextLevel].name;
-    sendToSlack({ text: `✅ ${approverName} 已確認，轉送給 ${nextApprover}` });
-    Utilities.sleep(2000);
-    sendApprovalRequest(week, nextLevel);
+  try {
+    const levelInfo = APPROVAL_LEVELS[level];
+    const approverName = levelInfo.name;
+    const now = new Date();
+    const approveDate = Utilities.formatDate(now, 'Asia/Taipei', 'yyyy-MM-dd');
+    const approveTime = Utilities.formatDate(now, 'Asia/Taipei', 'HH:mm');
     
-    return HtmlService.createHtmlOutput(`
-      <html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-        <style>body{font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}.card{background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;}.icon{font-size:64px;margin-bottom:16px;}h1{color:#34a853;margin:0 0 8px;}p{color:#5f6368;margin:0;}</style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="icon">✅</div>
-          <h1>提交成功！</h1>
-          <p>${approverName} 已確認</p>
-          <p style="margin-top:8px;">系統已自動轉送給 <strong>${nextApprover}</strong> 審核</p>
-        </div>
-      </body>
-      </html>
-    `);
-  } else {
-    sendToSlack({ text: '✅ 處長已確認，開始電子歸檔...' });
-    const archiveResult = archiveToGoogleDrive(week, weekData.startDate);
+    const weekData = getWeekInspectionDataForApproval(week);
     
-    if (archiveResult.success) {
-      sendToSlack({ text: `✅ 電子歸檔完成！📁 ${archiveResult.url}` });
-      return HtmlService.createHtmlOutput(`
-        <html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-          <style>body{font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}.card{background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;}.icon{font-size:64px;margin-bottom:16px;}h1{color:#34a853;margin:0 0 8px;}p{color:#5f6368;margin:0;}.btn{display:inline-block;margin-top:16px;padding:12px 24px;background:#1a73e8;color:white;text-decoration:none;border-radius:8px;}</style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="icon">✅</div>
-            <h1>全部確認完成！</h1>
-            <p>處長 已確認</p>
-            <p style="color:#34a853;margin-top:8px;">電子歸檔已完成</p>
-            <a href="${archiveResult.url}" class="btn" target="_blank">查看歸檔資料夾</a>
-          </div>
-        </body>
-        </html>
-      `);
+    // 儲存審核記錄
+    initApprovalRecordSheet();
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName('審核記錄');
+    sheet.appendRow([week, weekData.startDate, weekData.endDate, level, approverName, opinion || '', approveDate, approveTime, decision === 'approve' ? '已確認' : '退回']);
+    
+    let message = '';
+    
+    if (decision === 'reject') {
+      sendToSlack({ text: '⚠️ ' + approverName + ' 退回審核\n意見：' + (opinion || '無') });
+      message = '已退回';
+    } else if (levelInfo.next !== null) {
+      const nextApprover = APPROVAL_LEVELS[levelInfo.next].name;
+      sendToSlack({ text: '✅ ' + approverName + ' 已確認，轉送給 ' + nextApprover });
+      Utilities.sleep(2000);
+      sendApprovalRequest(week, levelInfo.next);
+      message = '已提交給 ' + nextApprover;
     } else {
-      sendToSlack({ text: `⚠️ 電子歸檔失敗: ${archiveResult.error}` });
-      return HtmlService.createHtmlOutput(`
-        <html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-          <style>body{font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}.card{background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;}.icon{font-size:64px;margin-bottom:16px;}h1{color:#f9ab00;margin:0 0 8px;}p{color:#5f6368;margin:0;}</style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="icon">⚠️</div>
-            <h1>提交成功！</h1>
-            <p>處長 已確認</p>
-            <p style="color:#ea4335;margin-top:8px;">電子歸檔失敗</p>
-          </div>
-        </body>
-        </html>
-      `);
+      sendToSlack({ text: '✅ 處長已確認，開始電子歸檔...' });
+      const archiveResult = archiveToGoogleDrive(week, weekData.startDate);
+      if (archiveResult.success) {
+        sendToSlack({ text: '✅ 電子歸檔完成！' + archiveResult.url });
+        message = '全部完成！歸檔位置：' + archiveResult.url;
+      } else {
+        message = '歸檔失敗：' + archiveResult.error;
+      }
     }
+    
+    return message;
+  } catch (e) {
+    return '錯誤：' + e.toString();
   }
 }
-
 function archiveToGoogleDrive(week, dateStr) {
   try {
     const ss = getSpreadsheet();
