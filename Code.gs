@@ -224,12 +224,12 @@ function showApprovalPage(weekNumber, level) {
   
   // 建立巡檢記錄表格
   let recordsHtml = '';
-  for (const r of weekData.records) {
+  for (const r of weekData.dailyRecords) {
     const statusClass = r.status === '異常' ? 'abnormal' : 'normal';
     recordsHtml += `<tr><td>${r.date}</td><td>${r.item}</td><td class="${statusClass}">${r.status}</td></tr>`;
   }
   
-  if (weekData.records.length === 0) {
+  if (weekData.dailyRecords.length === 0) {
     recordsHtml = '<tr><td colspan="3" style="text-align:center;">暫無巡檢資料</td></tr>';
   }
   
