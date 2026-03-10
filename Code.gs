@@ -332,7 +332,7 @@ function showApprovalPage(weekNumber, level) {
   const scriptUrl = ScriptApp.getService().getUrl();
   
   const html = `
-<!DOCTYPE html>
+<html>
 <html>
 <head>
   <base target="_top">
@@ -468,7 +468,7 @@ function handleConfirmation(week, level, opinion, decision) {
   if (decision === 'reject') {
     sendToSlack({ text: `⚠️ ${approverName} 退回審核，要求補巡\n\n意見：${opinion || '無'}` });
     return HtmlService.createHtmlOutput(`
-      <!DOCTYPE html>
+      <html>
       <html>
       <head>
         <meta charset="UTF-8">
@@ -497,7 +497,7 @@ function handleConfirmation(week, level, opinion, decision) {
     sendApprovalRequest(week, nextLevel);
     
     return HtmlService.createHtmlOutput(`
-      <!DOCTYPE html>
+      <html>
       <html>
       <head>
         <meta charset="UTF-8">
@@ -522,7 +522,7 @@ function handleConfirmation(week, level, opinion, decision) {
     if (archiveResult.success) {
       sendToSlack({ text: `✅ 電子歸檔完成！📁 ${archiveResult.url}` });
       return HtmlService.createHtmlOutput(`
-        <!DOCTYPE html>
+        <html>
         <html>
         <head>
           <meta charset="UTF-8">
@@ -544,7 +544,7 @@ function handleConfirmation(week, level, opinion, decision) {
     } else {
       sendToSlack({ text: `⚠️ 電子歸檔失敗: ${archiveResult.error}` });
       return HtmlService.createHtmlOutput(`
-        <!DOCTYPE html>
+        <html>
         <html>
         <head>
           <meta charset="UTF-8">
