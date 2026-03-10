@@ -56,16 +56,15 @@ function getCheckItems() {
 /**
  * 取得本週巡檢資料（用於審核表單）
  * 改進：按日期分組，顯示巡檢人員和最後巡檢時間
+ * 修正：巡檢次數按日計算，顯示最後一次巡檢記錄
  */
 function getWeekInspectionDataForApproval(weekNumber) {
   const ss = getSpreadsheet();
   const sheet = ss.getSheetByName('每日紀錄');
-  if (!sheet) return { startDate: '', endDate: '', dailyRecords: [], totalInspections: 0, abnormalCount: 0 };
+  if (!sheet) return { startDate: '', endDate: '', dailyRecords: [], totalDays: 0, abnormalDays: 0 };
   
   const data = sheet.getDataRange().getValues();
   const dailyData = {}; // 按日期分組
-  let totalInspections = 0;
-  let abnormalCount = 0;
   
   for (let i = 1; i < data.length; i++) {
     let dateValue = data[i][0];
@@ -78,21 +77,25 @@ function getWeekInspectionDataForApproval(weekNumber) {
     if (week === weekNumber) {
       const dayOfWeek = date.getDay();
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const item = data[i];
+        const result = item[3];
+        const inspector = item[5] || '未知';
+        const timeStr = item[6] || '';
+        
+        // 只保留最後一次的記錄
         if (!dailyData[dateStr]) {
           dailyData[dateStr] = {
             date: String(dateStr).substring(5, 10), // MM/DD
             fullDate: dateStr,
-            inspector: data[i][5] || '未知', // 巡檢人員
-            lastTime: data[i][6] || '', // 最後巡檢時間
-            items: []
+            inspector: inspector,
+            lastTime: timeStr,
+            items: [],
+            hasAbnormal: false
           };
         }
         
-        const item = data[i];
-        const result = item[3];
-        totalInspections++;
-        if (result === '異常') abnormalCount++;
-        
+        // 更新記錄（覆蓋之前的）
+        dailyData[dateStr].items = dailyData[dateStr].items.filter(existing => existing.item !== item[2]);
         dailyData[dateStr].items.push({
           item: item[2],
           status: result,
@@ -100,8 +103,13 @@ function getWeekInspectionDataForApproval(weekNumber) {
         });
         
         // 更新最後巡檢時間
-        if (item[6] && item[6] > dailyData[dateStr].lastTime) {
-          dailyData[dateStr].lastTime = item[6];
+        if (timeStr && timeStr > dailyData[dateStr].lastTime) {
+          dailyData[dateStr].lastTime = timeStr;
+        }
+        
+        // 標記是否有異常
+        if (result === '異常') {
+          dailyData[dateStr].hasAbnormal = true;
         }
       }
     }
@@ -110,13 +118,15 @@ function getWeekInspectionDataForApproval(weekNumber) {
   const sortedDays = Object.values(dailyData).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
   const startDate = sortedDays[0]?.fullDate || '';
   const endDate = sortedDays[sortedDays.length - 1]?.fullDate || '';
+  const totalDays = sortedDays.length;
+  const abnormalDays = sortedDays.filter(d => d.hasAbnormal).length;
   
   return { 
     startDate, 
     endDate, 
     dailyRecords: sortedDays, 
-    totalInspections, 
-    abnormalCount 
+    totalDays, 
+    abnormalDays 
   };
 }
 
@@ -186,8 +196,8 @@ function sendApprovalRequest(weekNumber, level) {
       { type: 'header', text: { type: 'plain_text', text: `🔔 ${approverName}，請確認本週機房巡檢結果`, emoji: true } },
       { type: 'section', text: { type: 'mrkdwn', text: `*📅 審核期間：*\n${weekData.startDate} - ${weekData.endDate}` } },
       { type: 'section', fields: [
-        { type: 'mrkdwn', text: `*📋 本週巡檢次數：*\n${weekData.totalInspections} 次` },
-        { type: 'mrkdwn', text: `*⚠️ 異常次數：*\n${weekData.abnormalCount} 次` }
+        { type: 'mrkdwn', text: `*📋 本週巡檢次數：*\n${weekData.totalDays} 次` },
+        { type: 'mrkdwn', text: `*⚠️ 異常次數：*\n${weekData.abnormalDays} 次` }
       ]},
       { type: 'divider' },
       { type: 'section', text: { type: 'mrkdwn', text: `*👇 請點擊下方連結進行審核：*\n<${approveLink}|📋 打開審核表單>` } }
@@ -347,8 +357,8 @@ function showApprovalPage(weekNumber, level) {
         <div class="section-title">📋 本週巡檢記錄表（點擊展開）</div>
         ${recordsHtml}
         <div class="stats">
-          <div class="stat-item"><div class="stat-value">${weekData.totalInspections}</div><div class="stat-label">本週巡檢次數</div></div>
-          <div class="stat-item"><div class="stat-value ${weekData.abnormalCount > 0 ? 'danger' : ''}">${weekData.abnormalCount}</div><div class="stat-label">異常次數</div></div>
+          <div class="stat-item"><div class="stat-value">${weekData.totalDays}</div><div class="stat-label">本週巡檢次數</div></div>
+          <div class="stat-item"><div class="stat-value ${weekData.abnormalDays > 0 ? 'danger' : ''}">${weekData.abnormalDays}</div><div class="stat-label">異常次數</div></div>
         </div>
         <div class="opinion-section">
           <div class="opinion-label">💬 【審核意見】（選填）</div>
@@ -360,7 +370,7 @@ function showApprovalPage(weekNumber, level) {
         </div>
         <div class="sign-section">
           <div class="sign-item"><label>👤 審核人：</label><input type="text" name="reviewer" value="${userEmail}" readonly></div>
-          <div class="sign-item"><label>⏰ 時間：</label><input type="text" value="${new Date().toLocaleString('zh-TW')}" readonly></div>
+          <div class="sign-item"><label>⏰ 時間：</label><input type="text" value="${new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}" readonly></div>
         </div>
       </div>
       <div class="submit-section">

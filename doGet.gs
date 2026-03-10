@@ -34,30 +34,36 @@ function doGet(e) {
  */
 function doPost(e) {
   try {
-    // 嘗試解析 JSON
     let data;
-    if (e.postData && e.postData.contents) {
-      try {
-        data = JSON.parse(e.postData.contents);
-      } catch (parseError) {
-        // 如果不是 JSON，可能是表單數據
-        data = e.parameter;
-      }
+    const contents = e.postData?.contents || '';
+    
+    // 嘗試解析 JSON
+    if (contents.startsWith('{') || contents.startsWith('[')) {
+      data = JSON.parse(contents);
     } else {
-      data = e.parameter;
+      // 解析 URL 編碼的參數
+      data = {};
+      const params = contents.split('&');
+      for (const param of params) {
+        const [key, value] = param.split('=');
+        if (key && value) {
+          data[decodeURIComponent(key)] = decodeURIComponent(value.replace(/\+/g, ' '));
+        }
+      }
     }
     
-    // 判斷是巡檢資料還是審核確認
+    // 處理審核確認
     if (data.action === 'confirm') {
-      // 審核確認
       return handleConfirmation(
         parseInt(data.week),
         parseInt(data.level),
         data.opinion || '',
         data.decision || 'approve'
       );
-    } else if (data.items) {
-      // 巡檢資料
+    }
+    
+    // 處理巡檢資料
+    if (data.items) {
       const result = saveInspection(data);
       return ContentService.createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
