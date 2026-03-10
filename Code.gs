@@ -84,7 +84,7 @@ function getWeekInspectionDataForApproval(weekNumber) {
         if (result === '異常') abnormalCount++;
         
         weekRecords.push({
-          date: dateStr.substring(5), // MM/DD 格式
+          date: String(dateStr).substring(5, 10), // MM/DD 格式
           item: item[2],
           status: result
         });
