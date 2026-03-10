@@ -430,17 +430,18 @@ function showApprovalPage(weekNumber, level) {
       const formData = new FormData(form);
       const data = {};
       formData.forEach((v, k) => data[k] = v);
-      document.body.innerHTML = '<div style="padding:40px;text-align:center;">處理中...</div>';
+      document.body.innerHTML = '<div style="padding:60px;text-align:center;font-family:Noto Sans TC,sans-serif;background:#f0f2f5;min-height:100vh;"><div style="background:white;padding:48px;border-radius:12px;max-width:400px;margin:0 auto;"><div style="font-size:48px;">⏳</div><h2 style="color:#1a73e8;margin-top:16px;">處理中...</h2><p style="color:#5f6368;margin-top:8px;">請稍候</p></div></div>';
       google.script.run.withSuccessHandler(function(html) {
         document.body.innerHTML = html;
       }).withFailureHandler(function(err) {
-        document.body.innerHTML = '<div style="padding:40px;text-align:center;color:red;">錯誤: ' + err.message + '</div>';
+        document.body.innerHTML = '<div style="padding:60px;text-align:center;font-family:Noto Sans TC,sans-serif;background:#f0f2f5;min-height:100vh;"><div style="background:white;padding:48px;border-radius:12px;max-width:400px;margin:0 auto;"><div style="font-size:48px;">❌</div><h2 style="color:#ea4335;margin-top:16px;">發生錯誤</h2><p style="color:#5f6368;margin-top:8px;">' + err.message + '</p></div></div>';
       }).handleConfirmation(
         parseInt(data.week),
         parseInt(data.level),
         data.opinion || '',
         data.decision || 'approve'
       );
+      return false;
     }
   </script>
 </body>
@@ -467,14 +468,23 @@ function handleConfirmation(week, level, opinion, decision) {
   if (decision === 'reject') {
     sendToSlack({ text: `⚠️ ${approverName} 退回審核，要求補巡\n\n意見：${opinion || '無'}` });
     return HtmlService.createHtmlOutput(`
-      <div style="font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
-        <div style="background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;">
-          <div style="font-size:48px;margin-bottom:16px;">❌</div>
-          <h1 style="color:#ea4335;">已退回</h1>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+        <style>body{font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}.card{background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;}.icon{font-size:64px;margin-bottom:16px;}h1{color:#ea4335;margin:0 0 8px;}p{color:#5f6368;margin:0;}</style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">❌</div>
+          <h1>已退回</h1>
           <p>${approverName} 已退回審核</p>
-          <p style="color:#5f6368;font-size:14px;">意見：${opinion || '無'}</p>
+          <p style="margin-top:8px;">意見：${opinion || '無'}</p>
         </div>
-      </div>
+      </body>
+      </html>
     `);
   }
   
@@ -487,14 +497,23 @@ function handleConfirmation(week, level, opinion, decision) {
     sendApprovalRequest(week, nextLevel);
     
     return HtmlService.createHtmlOutput(`
-      <div style="font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
-        <div style="background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;">
-          <div style="font-size:48px;margin-bottom:16px;">✅</div>
-          <h1 style="color:#34a853;">確認成功！</h1>
-          <p>${approverName} 已確認完成</p>
-          <p>系統已自動轉送給 <strong>${nextApprover}</strong> 審核</p>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+        <style>body{font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}.card{background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;}.icon{font-size:64px;margin-bottom:16px;}h1{color:#34a853;margin:0 0 8px;}p{color:#5f6368;margin:0;}</style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">✅</div>
+          <h1>提交成功！</h1>
+          <p>${approverName} 已確認</p>
+          <p style="margin-top:8px;">系統已自動轉送給 <strong>${nextApprover}</strong> 審核</p>
         </div>
-      </div>
+      </body>
+      </html>
     `);
   } else {
     sendToSlack({ text: '✅ 處長已確認，開始電子歸檔...' });
@@ -503,27 +522,45 @@ function handleConfirmation(week, level, opinion, decision) {
     if (archiveResult.success) {
       sendToSlack({ text: `✅ 電子歸檔完成！📁 ${archiveResult.url}` });
       return HtmlService.createHtmlOutput(`
-        <div style="font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
-          <div style="background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;">
-            <div style="font-size:48px;margin-bottom:16px;">✅</div>
-            <h1 style="color:#34a853;">全部確認完成！</h1>
-            <p><strong>處長</strong> 已確認完成</p>
-            <p style="color:#34a853;">✅ 電子歸檔已完成！</p>
-            <a href="${archiveResult.url}" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#1a73e8;color:white;text-decoration:none;border-radius:8px;" target="_blank">查看歸檔資料夾</a>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+          <style>body{font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}.card{background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;}.icon{font-size:64px;margin-bottom:16px;}h1{color:#34a853;margin:0 0 8px;}p{color:#5f6368;margin:0;}.btn{display:inline-block;margin-top:16px;padding:12px 24px;background:#1a73e8;color:white;text-decoration:none;border-radius:8px;}</style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">✅</div>
+            <h1>全部確認完成！</h1>
+            <p>處長 已確認</p>
+            <p style="color:#34a853;margin-top:8px;">電子歸檔已完成</p>
+            <a href="${archiveResult.url}" class="btn" target="_blank">查看歸檔資料夾</a>
           </div>
-        </div>
+        </body>
+        </html>
       `);
     } else {
       sendToSlack({ text: `⚠️ 電子歸檔失敗: ${archiveResult.error}` });
       return HtmlService.createHtmlOutput(`
-        <div style="font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
-          <div style="background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;">
-            <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
-            <h1 style="color:#f9ab00;">確認成功！</h1>
-            <p><strong>處長</strong> 已確認完成</p>
-            <p style="color:#ea4335;">⚠️ 電子歸檔失敗</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+          <style>body{font-family:'Noto Sans TC',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}.card{background:white;border-radius:12px;padding:48px;text-align:center;max-width:400px;}.icon{font-size:64px;margin-bottom:16px;}h1{color:#f9ab00;margin:0 0 8px;}p{color:#5f6368;margin:0;}</style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">⚠️</div>
+            <h1>提交成功！</h1>
+            <p>處長 已確認</p>
+            <p style="color:#ea4335;margin-top:8px;">電子歸檔失敗</p>
           </div>
-        </div>
+        </body>
+        </html>
       `);
     }
   }
