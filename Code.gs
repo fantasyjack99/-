@@ -159,8 +159,6 @@ function getInspectionDates(weekNumber) {
   const weekData = getWeekInspectionDataForApproval(weekNumber);
   return weekData.dailyRecords || [];
 }
-  return approvals;
-}
 
 function getWeekNumber(date) {
   const start = new Date(date.getFullYear(), 0, 1);
