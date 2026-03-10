@@ -216,25 +216,68 @@ function doGet(e) {
 /**
  * 顯示審核表單（參照 Nicole 設計）
  */
+/**
+ * 顯示審核表單（含折疊日期列）
+ */
 function showApprovalPage(weekNumber, level) {
   const levelInfo = APPROVAL_LEVELS[level];
   const approverName = levelInfo.name;
+  const userEmail = Session.getActiveUser().getEmail();
   
   const weekData = getWeekInspectionDataForApproval(weekNumber);
   
-  // 建立巡檢記錄表格
+  // 建立折疊的日期列
   let recordsHtml = '';
-  for (const r of weekData.dailyRecords) {
-    const statusClass = r.status === '異常' ? 'abnormal' : 'normal';
-    recordsHtml += `<tr><td>${r.date}</td><td>${r.item}</td><td class="${statusClass}">${r.status}</td></tr>`;
+  for (const day of weekData.dailyRecords) {
+    let itemsHtml = '';
+    for (const item of day.items) {
+      const statusClass = item.status === '異常' ? 'abnormal' : 'normal';
+      itemsHtml += `<tr><td>${item.item}</td><td class="${statusClass}">${item.status}</td><td>${item.note || '-'}</td></tr>`;
+    }
+    
+    recordsHtml += `
+      <div class="date-row">
+        <div class="date-header" onclick="toggleDetails(this)">
+          <span class="expand-icon">▶</span>
+          <span class="date-label">${day.date}</span>
+          <span class="inspector-info">👤 ${day.inspector} | ⏰ ${day.lastTime || '--:--'}</span>
+        </div>
+        <div class="date-details">
+          <table>
+            <thead><tr><th>項目</th><th>狀態</th><th>備註</th></tr></thead>
+            <tbody>${itemsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
   }
   
   if (weekData.dailyRecords.length === 0) {
-    recordsHtml = '<tr><td colspan="3" style="text-align:center;">暫無巡檢資料</td></tr>';
+    recordsHtml = '<div style="text-align:center;padding:20px;color:#9aa0a6;">暫無巡檢資料</div>';
   }
   
+  // 處長的最後選項
+  const isDirector = (level === 2);
+  const decisionOptions = isDirector ? `
+    <label class="decision-option selected" onclick="selectOption(this)">
+      <input type="radio" name="decision" value="approve" checked>
+      <span class="radio"></span>
+      <span>✅ 同意、歸檔</span>
+    </label>
+  ` : `
+    <label class="decision-option selected" onclick="selectOption(this)">
+      <input type="radio" name="decision" value="approve" checked>
+      <span class="radio"></span>
+      <span>✅ 簽核</span>
+    </label>
+    <label class="decision-option" onclick="selectOption(this)">
+      <input type="radio" name="decision" value="reject">
+      <span class="radio"></span>
+      <span>❌ 退回</span>
+    </label>
+  `;
+  
   const scriptUrl = ScriptApp.getService().getUrl();
-  const formAction = `${scriptUrl}?action=confirm&week=${weekNumber}&level=${level}`;
   
   const html = `
 <!DOCTYPE html>
@@ -247,128 +290,103 @@ function showApprovalPage(weekNumber, level) {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Noto Sans TC', sans-serif; background: #f0f2f5; padding: 20px; }
-    .container { max-width: 700px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+    .container { max-width: 700px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .header { background: #1a73e8; color: white; padding: 20px 24px; }
     .header h1 { font-size: 20px; font-weight: 500; }
     .header .subtitle { font-size: 14px; opacity: 0.9; margin-top: 4px; }
     .period { background: #f8f9fa; padding: 12px 24px; border-bottom: 1px solid #e0e0e0; font-size: 14px; color: #5f6368; }
     .content { padding: 24px; }
-    .section-title { font-size: 15px; font-weight: 600; color: #202124; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
-    th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #e8eaed; }
-    th { background: #f1f3f4; font-weight: 500; color: #5f6368; }
+    .section-title { font-size: 15px; font-weight: 600; color: #202124; margin-bottom: 12px; }
+    .date-row { margin-bottom: 8px; border: 1px solid #e8eaed; border-radius: 8px; overflow: hidden; }
+    .date-header { display: flex; align-items: center; padding: 14px 16px; background: #f8f9fa; cursor: pointer; }
+    .date-header:hover { background: #f1f3f4; }
+    .expand-icon { font-size: 12px; margin-right: 12px; color: #5f6368; transition: transform 0.2s; }
+    .date-header.expanded .expand-icon { transform: rotate(90deg); }
+    .date-label { font-weight: 600; margin-right: 16px; color: #202124; }
+    .inspector-info { color: #5f6368; font-size: 13px; }
+    .date-details { display: none; background: white; }
+    .date-details.show { display: block; }
+    .date-details table { margin: 0; }
+    .date-details th, .date-details td { font-size: 12px; }
     .normal { color: #34a853; }
     .abnormal { color: #ea4335; font-weight: 500; }
     .stats { display: flex; gap: 24px; margin-bottom: 24px; }
-    .stat-item { background: #f8f9fa; padding: 16px 24px; border-radius: 8px; text-align: center; }
+    .stat-item { background: #f8f9fa; padding: 16px 24px; border-radius: 8px; text-align: center; flex: 1; }
     .stat-value { font-size: 24px; font-weight: 600; color: #1a73e8; }
     .stat-value.danger { color: #ea4335; }
     .stat-label { font-size: 12px; color: #5f6368; margin-top: 4px; }
     .opinion-section { margin-bottom: 24px; }
     .opinion-label { font-size: 14px; font-weight: 500; color: #202124; margin-bottom: 8px; }
-    .opinion-label span { font-weight: 400; color: #5f6368; font-size: 12px; }
-    textarea { width: 100%; padding: 12px; border: 1px solid #dadce0; border-radius: 8px; font-family: inherit; font-size: 14px; min-height: 80px; resize: vertical; }
-    textarea:focus { outline: none; border-color: #1a73e8; }
-    .decision-section { margin-bottom: 24px; }
-    .decision-options { display: flex; flex-direction: column; gap: 12px; }
-    .decision-option { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid #e8eaed; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-    .decision-option:hover { border-color: #1a73e8; background: #f8fbfe; }
+    textarea { width: 100%; padding: 12px; border: 1px solid #dadce0; border-radius: 8px; font-family: inherit; font-size: 14px; min-height: 80px; }
+    .decision-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+    .decision-option { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid #e8eaed; border-radius: 8px; cursor: pointer; }
     .decision-option.selected { border-color: #1a73e8; background: #e8f0fe; }
     .decision-option input { display: none; }
-    .decision-option .radio { width: 20px; height: 20px; border: 2px solid #5f6368; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .decision-option.selected .radio { border-color: #1a73e8; }
-    .decision-option.selected .radio::after { content: '•'; color: #1a73e8; font-size: 16px; }
-    .decision-option .text { font-size: 14px; color: #202124; }
+    .decision-option .radio { width: 20px; height: 20px; border: 2px solid #5f6368; border-radius: 50%; }
+    .decision-option.selected .radio { border-color: #1a73e8; background: #1a73e8; }
     .sign-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-    .sign-item label { display: block; font-size: 14px; font-weight: 500; color: #202124; margin-bottom: 8px; }
-    .sign-item input { width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; }
+    .sign-item label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+    .sign-item input { width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 6px; }
     .submit-section { text-align: center; padding: 24px; background: #f8f9fa; border-top: 1px solid #e8eaed; }
-    .submit-btn { background: #1a73e8; color: white; border: none; padding: 14px 48px; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; }
-    .submit-btn:hover { background: #1557b0; }
-    .footer { padding: 16px 24px; text-align: center; font-size: 12px; color: #9aa0a6; }
+    .submit-btn { background: #1a73e8; color: white; border: none; padding: 14px 48px; border-radius: 8px; font-size: 15px; cursor: pointer; }
+    input[readonly] { background: #f1f3f4; }
   </style>
 </head>
 <body>
-  <form action="${formAction}" method="post" id="approvalForm">
+  <form id="approvalForm">
+    <input type="hidden" name="action" value="confirm">
+    <input type="hidden" name="week" value="${weekNumber}">
+    <input type="hidden" name="level" value="${level}">
     <div class="container">
       <div class="header">
         <h1>🏢 機房週巡檢審核表 - ${approverName}</h1>
         <div class="subtitle">請審核本週機房巡檢結果</div>
       </div>
-      
-      <div class="period">
-        📅 審核期間：${weekData.startDate} - ${weekData.endDate}
-      </div>
-      
+      <div class="period">📅 審核期間：${weekData.startDate} - ${weekData.endDate}</div>
       <div class="content">
-        <div class="section-title">📋 本週巡檢記錄表</div>
-        <table>
-          <thead>
-            <tr><th>日期</th><th>項目</th><th>狀態</th></tr>
-          </thead>
-          <tbody>
-            ${recordsHtml}
-          </tbody>
-        </table>
-        
+        <div class="section-title">📋 本週巡檢記錄表（點擊展開）</div>
+        ${recordsHtml}
         <div class="stats">
-          <div class="stat-item">
-            <div class="stat-value">${weekData.totalInspections}</div>
-            <div class="stat-label">本週巡檢次數</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value ${weekData.abnormalCount > 0 ? 'danger' : ''}">${weekData.abnormalCount}</div>
-            <div class="stat-label">異常次數</div>
-          </div>
+          <div class="stat-item"><div class="stat-value">${weekData.totalInspections}</div><div class="stat-label">本週巡檢次數</div></div>
+          <div class="stat-item"><div class="stat-value ${weekData.abnormalCount > 0 ? 'danger' : ''}">${weekData.abnormalCount}</div><div class="stat-label">異常次數</div></div>
         </div>
-        
         <div class="opinion-section">
           <div class="opinion-label">💬 【審核意見】（選填）</div>
           <textarea name="opinion" placeholder="如有意見請輸入..."></textarea>
         </div>
-        
-        <div class="decision-section">
-          <div class="section-title">✓ 審核決策</div>
-          <div class="decision-options">
-            <label class="decision-option selected" onclick="selectOption(this)">
-              <input type="radio" name="decision" value="approve" checked>
-              <span class="radio"></span>
-              <span class="text">✅ 同意，提交給 ${levelInfo.nextName}</span>
-            </label>
-            <label class="decision-option" onclick="selectOption(this)">
-              <input type="radio" name="decision" value="reject">
-              <span class="radio"></span>
-              <span class="text">❌ 退回，要求補巡</span>
-            </label>
-          </div>
+        <div class="section-title">✓ 審核決策</div>
+        <div class="decision-options">
+          ${decisionOptions}
         </div>
-        
         <div class="sign-section">
-          <div class="sign-item">
-            <label>👤 審核人：</label>
-            <input type="text" name="reviewer" placeholder="請輸入姓名" required>
-          </div>
-          <div class="sign-item">
-            <label>⏰ 時間：</label>
-            <input type="text" name="reviewTime" value="${new Date().toLocaleString('zh-TW')}" readonly>
-          </div>
+          <div class="sign-item"><label>👤 審核人：</label><input type="text" name="reviewer" value="${userEmail}" readonly></div>
+          <div class="sign-item"><label>⏰ 時間：</label><input type="text" value="${new Date().toLocaleString('zh-TW')}" readonly></div>
         </div>
       </div>
-      
       <div class="submit-section">
-        <button type="submit" class="submit-btn">📤 提交審核</button>
-      </div>
-      
-      <div class="footer">
-        機房巡檢系統 © 2026
+        <button type="button" class="submit-btn" onclick="submitForm()">📤 提交審核</button>
       </div>
     </div>
   </form>
-  
   <script>
+    function toggleDetails(el) {
+      el.classList.toggle('expanded');
+      el.nextElementSibling.classList.toggle('show');
+    }
     function selectOption(el) {
       document.querySelectorAll('.decision-option').forEach(o => o.classList.remove('selected'));
       el.classList.add('selected');
+    }
+    function submitForm() {
+      const form = document.getElementById('approvalForm');
+      const formData = new FormData(form);
+      const data = {};
+      formData.forEach((v, k) => data[k] = v);
+      google.script.run.withSuccessHandler(function(html) {
+        document.body.innerHTML = html;
+      }).withFailureHandler(function(err) {
+        alert('錯誤: ' + err.message);
+      }).doPost(JSON.stringify(data));
     }
   </script>
 </body>
