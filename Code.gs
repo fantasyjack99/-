@@ -68,9 +68,11 @@ function getWeekInspectionDataForApproval(weekNumber) {
   let abnormalCount = 0;
   
   for (let i = 1; i < data.length; i++) {
-    const dateStr = data[i][0];
-    if (!dateStr) continue;
+    let dateValue = data[i][0];
+    if (!dateValue) continue;
     
+    // 確保日期是字串格式
+    const dateStr = typeof dateValue === 'string' ? dateValue : Utilities.formatDate(new Date(dateValue), 'Asia/Taipei', 'yyyy-MM-dd');
     const date = new Date(dateStr);
     const week = getWeekNumber(date);
     
