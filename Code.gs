@@ -14,6 +14,27 @@ const APPROVAL_LEVELS = {
   2: { name: '處長', key: 'director', next: null, nextName: '' }
 };
 
+/**
+ * 簡化時間格式，只顯示 HH:MM
+ */
+function formatTime(timeStr) {
+  if (!timeStr) return '--:--';
+  try {
+    // 如果已經是 HH:MM 格式，直接返回
+    if (typeof timeStr === 'string' && timeStr.match(/^\d{2}:\d{2}$/)) {
+      return timeStr;
+    }
+    // 嘗試解析時間
+    const date = new Date(timeStr);
+    if (!isNaN(date.getTime())) {
+      return Utilities.formatDate(date, 'Asia/Taipei', 'HH:mm');
+    }
+    return String(timeStr).substring(0, 5);
+  } catch (e) {
+    return '--:--';
+  }
+}
+
 function getSpreadsheet() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
@@ -250,7 +271,7 @@ function showApprovalPage(weekNumber, level) {
         <div class="date-header" onclick="toggleDetails(this)">
           <span class="expand-icon">▶</span>
           <span class="date-label">${day.date}</span>
-          <span class="inspector-info">👤 ${day.inspector} | ⏰ ${day.lastTime || '--:--'}</span>
+          <span class="inspector-info">👤 ${day.inspector} | ⏰ ${formatTime(day.lastTime) || '--:--'}</span>
         </div>
         <div class="date-details">
           <table>
@@ -392,11 +413,17 @@ function showApprovalPage(weekNumber, level) {
       const formData = new FormData(form);
       const data = {};
       formData.forEach((v, k) => data[k] = v);
+      document.body.innerHTML = '<div style="padding:40px;text-align:center;">處理中...</div>';
       google.script.run.withSuccessHandler(function(html) {
         document.body.innerHTML = html;
       }).withFailureHandler(function(err) {
-        alert('錯誤: ' + err.message);
-      }).doPost(JSON.stringify(data));
+        document.body.innerHTML = '<div style="padding:40px;text-align:center;color:red;">錯誤: ' + err.message + '</div>';
+      }).handleConfirmation(
+        parseInt(data.week),
+        parseInt(data.level),
+        data.opinion || '',
+        data.decision || 'approve'
+      );
     }
   </script>
 </body>
