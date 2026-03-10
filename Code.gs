@@ -151,6 +151,31 @@ function getWeekInspectionDataForApproval(weekNumber) {
   };
 }
 
+/**
+ * 取得本週已完成的審核記錄
+ */
+function getPreviousApprovals(weekNumber) {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('審核記錄');
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getValues();
+  const approvals = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == weekNumber) {
+      approvals.push({
+        level: data[i][3],
+        approver: data[i][4],
+        date: data[i][6],
+        time: data[i][7],
+        status: data[i][8]
+      });
+    }
+  }
+  return approvals;
+}
+
 function getWeekNumber(date) {
   const start = new Date(date.getFullYear(), 0, 1);
   const diff = date - start;
@@ -256,6 +281,20 @@ function showApprovalPage(weekNumber, level) {
   const userEmail = Session.getActiveUser().getEmail();
   
   const weekData = getWeekInspectionDataForApproval(weekNumber);
+  const prevApprovals = getPreviousApprovals(weekNumber);
+  
+  // 建立過往審核記錄
+  let approvalHistoryHtml = '';
+  const levelNames = ['資安人員', '組長', '處長'];
+  for (let l = 0; l < level; l++) {
+    const found = prevApprovals.find(a => a.level == l);
+    if (found) {
+      approvalHistoryHtml += `<div style="padding:8px 12px;background:#e8f5e9;border-radius:6px;margin-bottom:8px;color:#2e7d32;font-size:13px;">✅ ${levelNames[l]}：${found.date} ${found.time}</div>`;
+    }
+  }
+  if (approvalHistoryHtml) {
+    approvalHistoryHtml = `<div class="section-title">📜 審核進度</div>` + approvalHistoryHtml;
+  }
   
   // 建立折疊的日期列
   let recordsHtml = '';
@@ -388,8 +427,7 @@ function showApprovalPage(weekNumber, level) {
         <div class="section-title">✓ 審核決策</div>
         <div class="decision-options">
           ${decisionOptions}
-        </div>
-        <div class="sign-section">
+        <div class="section-title">✓ 審核決策</div>        <div class="decision-options">          ${decisionOptions}        </div>        ${approvalHistoryHtml}        <div class="sign-section">
           <div class="sign-item"><label>👤 審核人：</label><input type="text" name="reviewer" value="${userEmail}" readonly></div>
           <div class="sign-item"><label>⏰ 時間：</label><input type="text" value="${new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}" readonly></div>
         </div>
