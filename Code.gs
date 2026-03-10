@@ -453,12 +453,12 @@ function showApprovalPage(weekNumber, level) {
 function handleConfirmation(week, level, opinion, decision) {
   try {
     // 檢查是否已經審核過
-    const ss = getSpreadsheet();
-    const sheet = ss.getSheetByName('審核記錄');
-    if (sheet) {
-      const data = sheet.getDataRange().getValues();
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][0] == week && data[i][3] == level) {
+    const ssCheck = getSpreadsheet();
+    const sheetCheck = ssCheck.getSheetByName('審核記錄');
+    if (sheetCheck) {
+      const checkData = sheetCheck.getDataRange().getValues();
+      for (let i = 1; i < checkData.length; i++) {
+        if (checkData[i][0] == week && checkData[i][3] == level) {
           return '⚠️ 此審核已經提交過了，請勿重複提交！';
         }
       }
@@ -474,7 +474,8 @@ function handleConfirmation(week, level, opinion, decision) {
     
     // 儲存審核記錄
     initApprovalRecordSheet();
-    
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName('審核記錄');
     sheet.appendRow([week, weekData.startDate, weekData.endDate, level, approverName, opinion || '', approveDate, approveTime, decision === 'approve' ? '已確認' : '退回']);
     
     let message = '';
