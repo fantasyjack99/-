@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>機房巡檢系統</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --primary: #2563eb; --primary-dark: #1d4ed8; --success: #10b981; --danger: #ef4444; --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db; --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563; --gray-700: #374151; --gray-800: #1f2937; --radius: 12px; }
+    body { font-family: 'Noto Sans TC', -apple-system, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; background: white; border-radius: var(--radius); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); overflow: hidden; }
+    .header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 20px 24px; }
+    .header-content { display: flex; justify-content: space-between; align-items: center; }
+    .logo { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
+    .logo i { font-size: 28px; }
+    .user-info { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .progress-section { background: var(--gray-50); padding: 20px 24px; border-bottom: 1px solid var(--gray-200); }
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .progress-label { font-weight: 600; color: var(--gray-700); }
+    .progress-count { font-weight: 700; color: var(--primary); font-size: 18px; }
+    .progress-bar { height: 12px; background: var(--gray-200); border-radius: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--success) 0%, #34d399 100%); border-radius: 6px; transition: width 0.4s ease; width: 0%; }
+    .date-display { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px 24px; background: var(--gray-100); border-bottom: 1px solid var(--gray-200); font-size: 16px; color: var(--gray-700); }
+    .date-display i { color: var(--primary); }
+    .weekday { background: var(--primary); color: white; padding: 2px 12px; border-radius: 12px; font-size: 13px; font-weight: 500; }
+    .items-container { padding: 16px 24px; }
+    .category-header { display: flex; align-items: center; gap: 10px; padding: 16px 0 12px; margin-bottom: 8px; border-bottom: 2px solid var(--primary); color: var(--gray-800); font-size: 18px; font-weight: 700; }
+    .category-header i { color: var(--primary); }
+    .inspection-item { background: var(--gray-50); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; transition: all 0.3s ease; border: 2px solid transparent; }
+    .inspection-item:hover { border-color: var(--gray-300); }
+    .inspection-item.abnormal { border-color: var(--danger); background: #fef2f2; }
+    .item-info { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .item-name { font-weight: 600; font-size: 16px; color: var(--gray-800); }
+    .item-standard { font-size: 13px; color: var(--gray-500); }
+    .item-actions { display: flex; gap: 12px; }
+    .radio-label { flex: 1; cursor: pointer; }
+    .radio-label input { display: none; }
+    .radio-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; border-radius: 8px; font-weight: 500; transition: all 0.3s ease; border: 2px solid var(--gray-200); background: white; color: var(--gray-600); }
+    .radio-label.normal input:checked + .radio-btn { background: var(--success); border-color: var(--success); color: white; }
+    .radio-label.abnormal input:checked + .radio-btn { background: var(--danger); border-color: var(--danger); color: white; }
+    .item-note { margin-top: 12px; display: none; }
+    .item-note input { width: 100%; padding: 12px 16px; border: 2px solid var(--danger); border-radius: 8px; font-size: 14px; outline: none; }
+    .submit-section { padding: 24px; background: var(--gray-50); border-top: 1px solid var(--gray-200); }
+    .submit-btn { width: 100%; padding: 16px 24px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; border: none; border-radius: var(--radius); font-size: 18px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: all 0.3s ease; }
+    .submit-btn:hover { transform: translateY(-2px); }
+    .submit-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
+    .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .loading-overlay.active { display: flex; }
+    .spinner { background: white; padding: 32px 48px; border-radius: var(--radius); display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .spinner i { font-size: 40px; color: var(--primary); }
+    .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1001; padding: 20px; }
+    .modal.active { display: flex; }
+    .modal-content { background: white; border-radius: var(--radius); padding: 40px; text-align: center; max-width: 400px; width: 100%; }
+    .modal-icon { font-size: 64px; margin-bottom: 20px; }
+    .modal-content.success .modal-icon { color: var(--success); }
+    .modal-content.error .modal-icon { color: var(--danger); }
+    .modal-content h2 { font-size: 24px; color: var(--gray-800); margin-bottom: 8px; }
+    .modal-content p { color: var(--gray-600); margin-bottom: 24px; }
+    .modal-content button { padding: 12px 32px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    @media (max-width: 600px) { body { padding: 0; } .container { border-radius: 0; min-height: 100vh; } .items-container { padding: 12px 16px; } .inspection-item { padding: 12px; } .item-actions { flex-direction: column; gap: 8px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-content">
+        <div class="logo"><i class="fas fa-server"></i><span>機房巡檢系統</span></div>
+        <div class="user-info"><i class="fas fa-user-circle"></i><span><?= userName ?></span></div>
+      </div>
+    </header>
+    <div class="progress-section">
+      <div class="progress-header">
+        <span class="progress-label">巡檢進度</span>
+        <span class="progress-count"><span id="checkedCount">0</span> / <span id="totalCount"><?= items.length ?></span></span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="date-display">
+      <i class="fas fa-calendar-alt"></i>
+      <span id="currentDate"></span>
+      <span class="weekday" id="weekday"></span>
+    </div>
+    <form id="inspectionForm" onsubmit="submitForm(event)">
+      <div class="items-container">
+        <? 
+        var currentCategory = '';
+        for (var i = 0; i < items.length; i++) { 
+          var item = items[i];
+          if (item.category !== currentCategory) {
+            currentCategory = item.category;
+        ?>
+          <div class="category-header"><i class="fas fa-folder-open"></i><span><?= item.category ?></span></div>
+        <? } ?>
+          <div class="inspection-item" data-category="<?= item.category ?>" data-item="<?= item.item ?>">
+            <div class="item-info">
+              <span class="item-name"><?= item.item ?></span>
+              <? if (item.standard) { ?><span class="item-standard"><?= item.standard ?></span><? } ?>
+            </div>
+            <div class="item-actions">
+              <label class="radio-label normal">
+                <input type="radio" name="result_<?= i ?>" value="正常" checked onchange="updateProgress()">
+                <span class="radio-btn"><i class="fas fa-check"></i> 正常</span>
+              </label>
+              <label class="radio-label abnormal">
+                <input type="radio" name="result_<?= i ?>" value="異常" onchange="updateProgress()">
+                <span class="radio-btn"><i class="fas fa-times"></i> 異常</span>
+              </label>
+            </div>
+            <div class="item-note" id="note_<?= i ?>">
+              <input type="text" placeholder="請說明異常原因..." oninput="updateProgress()">
+            </div>
+            <input type="hidden" name="category_<?= i ?>" value="<?= item.category ?>">
+            <input type="hidden" name="item_<?= i ?>" value="<?= item.item ?>">
+            <input type="hidden" name="result_<?= i ?>" id="result_<?= i ?>" value="正常">
+            <input type="hidden" name="note_<?= i ?>" id="note_input_<?= i ?>" value="">
+          </div>
+        <? } ?>
+      </div>
+      <div class="submit-section">
+        <button type="submit" class="submit-btn" id="submitBtn"><i class="fas fa-paper-plane"></i><span>提交巡檢結果</span></button>
+      </div>
+    </form>
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"><i class="fas fa-spinner fa-spin"></i><span>儲存中...</span></div>
+    </div>
+    <div class="modal" id="successModal">
+      <div class="modal-content success">
+        <div class="modal-icon"><i class="fas fa-check-circle"></i></div>
+        <h2>提交成功！</h2><p>巡檢資料已儲存</p>
+        <button onclick="closeModal()">確定</button>
+      </div>
+    </div>
+    <div class="modal" id="errorModal">
+      <div class="modal-content error">
+        <div class="modal-icon"><i class="fas fa-exclamation-circle"></i></div>
+        <h2>提交失敗</h2><p id="errorMessage">請稍後再試</p>
+        <button onclick="closeErrorModal()">確定</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    const today = new Date();
+    document.getElementById('currentDate').textContent = today.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+    document.getElementById('weekday').textContent = weekDays[today.getDay()];
+    const totalItems = document.querySelectorAll('.inspection-item').length;
+    document.getElementById('totalCount').textContent = totalItems;
+
+    function updateProgress() {
+      let checkedCount = 0;
+      document.querySelectorAll('.inspection-item').forEach((item, index) => {
+        const normalRadio = item.querySelector('input[value="正常"]');
+        const abnormalRadio = item.querySelector('input[value="異常"]');
+        const noteInput = item.querySelector('.item-note input');
+        const noteDiv = item.querySelector('.item-note');
+        const resultInput = document.getElementById('result_' + index);
+        const noteInputHidden = document.getElementById('note_input_' + index);
+        if (normalRadio.checked) {
+          resultInput.value = '正常';
+          noteInputHidden.value = '';
+          noteDiv.style.display = 'none';
+          item.classList.remove('abnormal');
+          checkedCount++;
+        } else if (abnormalRadio.checked) {
+          resultInput.value = '異常';
+          noteInputHidden.value = noteInput.value;
+          noteDiv.style.display = 'block';
+          item.classList.add('abnormal');
+          checkedCount++;
+        }
+      });
+      document.getElementById('checkedCount').textContent = checkedCount;
+      document.getElementById('progressFill').style.width = (checkedCount / totalItems * 100) + '%';
+      return checkedCount === totalItems;
+    }
+
+    function submitForm(event) {
+      event.preventDefault();
+      if (!updateProgress()) { alert('請完成所有檢查項目！'); return; }
+      document.getElementById('loadingOverlay').classList.add('active');
+      document.getElementById('submitBtn').disabled = true;
+      const items = [];
+      document.querySelectorAll('.inspection-item').forEach((item, index) => {
+        items.push({
+          category: item.querySelector('input[name^="category_"]').value,
+          item: item.querySelector('input[name^="item_"]').value,
+          result: document.getElementById('result_' + index).value,
+          note: document.getElementById('note_input_' + index).value
+        });
+      });
+      google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onError).doPost({ postData: { contents: JSON.stringify({ items: items }) } });
+    }
+
+    function onSuccess(result) {
+      document.getElementById('loadingOverlay').classList.remove('active');
+      document.getElementById('submitBtn').disabled = false;
+      if (result.success) document.getElementById('successModal').classList.add('active');
+      else { document.getElementById('errorMessage').textContent = result.message || '請稍後再試'; document.getElementById('errorModal').classList.add('active'); }
+    }
+
+    function onError(error) {
+      document.getElementById('loadingOverlay').classList.remove('active');
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('errorMessage').textContent = error.message || '請稍後再試';
+      document.getElementById('errorModal').classList.add('active');
+    }
+
+    function closeModal() { document.getElementById('successModal').classList.remove('active'); location.reload(); }
+    function closeErrorModal() { document.getElementById('errorModal').classList.remove('active'); }
+    document.addEventListener('DOMContentLoaded', updateProgress);
+  </script>
+</body>
+</html>

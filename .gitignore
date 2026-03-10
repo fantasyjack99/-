@@ -1,0 +1,12 @@
+# Google Apps Script - 不要忽略 Code.gs 和 doGet.gs
+# *.gs  <-- 這個不要
+
+# 作業系統
+.DS_Store
+Thumbs.db
+
+# 壓縮檔
+*.zip
+
+# 安裝指南（可選）
+*安裝指南*
