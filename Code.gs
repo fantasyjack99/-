@@ -474,8 +474,7 @@ function handleConfirmation(week, level, opinion, decision) {
     
     // 儲存審核記錄
     initApprovalRecordSheet();
-    const ss = getSpreadsheet();
-    const sheet = ss.getSheetByName('審核記錄');
+    
     sheet.appendRow([week, weekData.startDate, weekData.endDate, level, approverName, opinion || '', approveDate, approveTime, decision === 'approve' ? '已確認' : '退回']);
     
     let message = '';
