@@ -54,16 +54,16 @@ function getCheckItems() {
 }
 
 /**
- * 取得本週巡檢資料（用于審核表單）
+ * 取得本週巡檢資料（用於審核表單）
+ * 改進：按日期分組，顯示巡檢人員和最後巡檢時間
  */
 function getWeekInspectionDataForApproval(weekNumber) {
   const ss = getSpreadsheet();
   const sheet = ss.getSheetByName('每日紀錄');
-  if (!sheet) return { startDate: '', endDate: '', records: [], totalInspections: 0, abnormalCount: 0 };
+  if (!sheet) return { startDate: '', endDate: '', dailyRecords: [], totalInspections: 0, abnormalCount: 0 };
   
   const data = sheet.getDataRange().getValues();
-  const weekRecords = [];
-  let dates = [];
+  const dailyData = {}; // 按日期分組
   let totalInspections = 0;
   let abnormalCount = 0;
   
@@ -71,7 +71,6 @@ function getWeekInspectionDataForApproval(weekNumber) {
     let dateValue = data[i][0];
     if (!dateValue) continue;
     
-    // 確保日期是字串格式
     const dateStr = typeof dateValue === 'string' ? dateValue : Utilities.formatDate(new Date(dateValue), 'Asia/Taipei', 'yyyy-MM-dd');
     const date = new Date(dateStr);
     const week = getWeekNumber(date);
@@ -79,26 +78,46 @@ function getWeekInspectionDataForApproval(weekNumber) {
     if (week === weekNumber) {
       const dayOfWeek = date.getDay();
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        dates.push(dateStr);
+        if (!dailyData[dateStr]) {
+          dailyData[dateStr] = {
+            date: String(dateStr).substring(5, 10), // MM/DD
+            fullDate: dateStr,
+            inspector: data[i][5] || '未知', // 巡檢人員
+            lastTime: data[i][6] || '', // 最後巡檢時間
+            items: []
+          };
+        }
+        
         const item = data[i];
         const result = item[3];
         totalInspections++;
         if (result === '異常') abnormalCount++;
         
-        weekRecords.push({
-          date: String(dateStr).substring(5, 10), // MM/DD 格式
+        dailyData[dateStr].items.push({
           item: item[2],
-          status: result
+          status: result,
+          note: item[4] || ''
         });
+        
+        // 更新最後巡檢時間
+        if (item[6] && item[6] > dailyData[dateStr].lastTime) {
+          dailyData[dateStr].lastTime = item[6];
+        }
       }
     }
   }
   
-  dates.sort();
-  const startDate = dates[0] || '';
-  const endDate = dates[dates.length - 1] || '';
+  const sortedDays = Object.values(dailyData).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+  const startDate = sortedDays[0]?.fullDate || '';
+  const endDate = sortedDays[sortedDays.length - 1]?.fullDate || '';
   
-  return { startDate, endDate, records: weekRecords, totalInspections, abnormalCount };
+  return { 
+    startDate, 
+    endDate, 
+    dailyRecords: sortedDays, 
+    totalInspections, 
+    abnormalCount 
+  };
 }
 
 function getWeekNumber(date) {

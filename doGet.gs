@@ -8,7 +8,6 @@
 function doGet(e) {
   const p = e.parameter;
   
-  // 如果有 action 參數，根據參數決定顯示什麼
   if (p.action === 'approve') {
     return showApprovalPage(parseInt(p.week), parseInt(p.level));
   }
@@ -31,14 +30,45 @@ function doGet(e) {
 }
 
 /**
- * 處理 POST 請求（儲存巡檢資料）
+ * 處理 POST 請求
  */
 function doPost(e) {
-  const data = JSON.parse(e.postData.contents);
-  const result = saveInspection(data);
-  
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+  try {
+    // 嘗試解析 JSON
+    let data;
+    if (e.postData && e.postData.contents) {
+      try {
+        data = JSON.parse(e.postData.contents);
+      } catch (parseError) {
+        // 如果不是 JSON，可能是表單數據
+        data = e.parameter;
+      }
+    } else {
+      data = e.parameter;
+    }
+    
+    // 判斷是巡檢資料還是審核確認
+    if (data.action === 'confirm') {
+      // 審核確認
+      return handleConfirmation(
+        parseInt(data.week),
+        parseInt(data.level),
+        data.opinion || '',
+        data.decision || 'approve'
+      );
+    } else if (data.items) {
+      // 巡檢資料
+      const result = saveInspection(data);
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Unknown request' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**
